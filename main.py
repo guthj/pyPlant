@@ -12,6 +12,7 @@ import paho.mqtt.client as mqtt
 
 from time import sleep
 
+#test
 
 ##pubStrings
 
@@ -97,6 +98,8 @@ class Plant(Accessory):
             'RelativeHumidityDehumidifierThreshold', setter_callback=self.set_humidity_de)
         self.char_threshold.set_value(60)
         self.char_threshold_de.set_value(100)
+
+        self.set_info_service(firmware_revision = "0.1", manufacturer = "test", model = "test")
 
     def test(self, value):
         print(value)
