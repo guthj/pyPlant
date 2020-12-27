@@ -185,6 +185,7 @@ def on_connect(client, userdata, flags, rc):
         client.subscribe(const.plantArray[i] + subEnableWatering)
         client.subscribe(const.plantArray[i] + subWaterTargetValue)
         client.subscribe(const.plantArray[i] + subPumpOn)
+        client.subscribe(const.plantArray[i] + subWatering)
 
 
 def on_message(client, userdata, msg):
@@ -203,7 +204,15 @@ def on_message(client, userdata, msg):
                 # set target state to auto
                 plantAccessories[i].char_target_state.set_value(0)
                 plantAccessories[i].char_curr_state.set_value(1)
-
+        if msg.topic == const.plantArray[i]+subPumpOn:
+            if messageText == "true":
+                # set target state to humidify
+                plantAccessories[i].char_target_state.set_value(1)
+                plantAccessories[i].char_curr_state.set_value(2)
+            if messageText == "false":
+                # set target state to auto
+                plantAccessories[i].char_target_state.set_value(0)
+                plantAccessories[i].char_curr_state.set_value(1)
         if msg.topic == const.plantArray[i]+subEnableWatering:
             if messageText == "true":
                 plantAccessories[i].char_active.set_value(1)
