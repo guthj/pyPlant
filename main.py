@@ -14,7 +14,7 @@ from time import sleep
 
 #test hhh
 
-##pubStrings
+##pubStringsjjj
 
 pubPumpOn = "/Pump/setOn"
 pubEnableWatering = "/enableWatering/setOn"
