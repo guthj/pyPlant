@@ -32,6 +32,7 @@ subError =                  "/MotionSensor/Error"
 subWatering =               "/MotionSensor/Watering"
 subBattery =                "/Battery"
 subPing =                   "/Ping/Response"
+subFirmware =               "/Firmware"
 
 logging.basicConfig(level=logging.INFO, format="[%(module)s] %(message)s")
 
@@ -99,7 +100,7 @@ class Plant(Accessory):
         self.char_threshold.set_value(60)
         self.char_threshold_de.set_value(100)
 
-        self.set_info_service(firmware_revision = "0.1", manufacturer = "test", model = "test")
+        # self.set_info_service(firmware_revision = "0.1", manufacturer = "JPCG", model = "test")
 
     def test(self, value):
         print(value)
@@ -186,6 +187,7 @@ def on_connect(client, userdata, flags, rc):
         client.subscribe(const.plantArray[i] + subWaterTargetValue)
         client.subscribe(const.plantArray[i] + subPumpOn)
         client.subscribe(const.plantArray[i] + subWatering)
+        client.subscribe(const.plantArray[i] + subFirmware)
 
 
 def on_message(client, userdata, msg):
@@ -224,6 +226,10 @@ def on_message(client, userdata, msg):
 
         if msg.topic == const.plantArray[i]+subWaterTargetValue:
             plantAccessories[i].char_threshold.set_value(int(messageText))
+
+        if msg.topic == const.plantArray[i] + subFirmware:
+            plantAccessories[i].set_info_service(firmware_revision = messageText, manufacturer = "JPCG", model = "NanoIoTWaterV1")
+
 
 
 def log(text, level):
