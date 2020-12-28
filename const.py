@@ -1,4 +1,4 @@
-plantArray=["Alocasia", "Avocado", "CalathiaM","Monstera"]
+plantArray=["AlocasiaZ", "Avocado", "CalathiaM","Monstera"]
 
 debuglevel = 5
 # 0 none
