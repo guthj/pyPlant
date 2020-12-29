@@ -15,9 +15,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from time import sleep
 
-#test hhh
-
-##pubStringsjjjfffffasasas
 
 pubPumpOn = "/Pump/setOn"
 pubEnableWatering = "/enableWatering/setOn"
