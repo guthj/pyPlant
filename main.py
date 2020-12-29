@@ -251,7 +251,7 @@ for plant in const.plantArray:
 client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = on_message
-client.connect("10.0.0.16", 1883, 60)
+client.connect("10.0.0.50", 1883, 60)
 client.loop_start()
 sleep(2)
 log("MQTT Started", 2)
