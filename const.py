@@ -7,3 +7,5 @@ debuglevel = 5
 # 3 info
 # 4 debug
 debugStr = ["None  :  ", "Error :  ", "Notice:  ", "Info  :  ", "Debug :  "]
+
+changedState = False

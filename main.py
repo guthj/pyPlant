@@ -10,6 +10,9 @@ import const
 
 import paho.mqtt.client as mqtt
 
+from apscheduler.schedulers.background import BackgroundScheduler
+
+
 from time import sleep
 
 #test hhh
@@ -63,9 +66,12 @@ class Plant(Accessory):
     category = CATEGORY_HUMIDIFIER
 
     plantNum = - 1
+    firmwareString = "0.1"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        accDriver = self.driver
 
         plant_hum = self.add_preload_service("HumidifierDehumidifier",
                                              chars=['RelativeHumidityHumidifierThreshold',
@@ -99,8 +105,7 @@ class Plant(Accessory):
             'RelativeHumidityDehumidifierThreshold', setter_callback=self.set_humidity_de)
         self.char_threshold.set_value(60)
         self.char_threshold_de.set_value(100)
-
-        # self.set_info_service(firmware_revision = "0.1", manufacturer = "JPCG", model = "test")
+        # self.set_info_service(firmware_revision = self.firmwareString, manufacturer = "JPCG", model = "test")
 
     def test(self, value):
         print(value)
@@ -228,7 +233,17 @@ def on_message(client, userdata, msg):
             plantAccessories[i].char_threshold.set_value(int(messageText))
 
         if msg.topic == const.plantArray[i] + subFirmware:
-            plantAccessories[i].set_info_service(firmware_revision = messageText, manufacturer = "JPCG", model = "NanoIoTWaterV1")
+            if plantAccessories[i].firmwareString != messageText:
+                plantAccessories[i].firmwareString = messageText
+                plantAccessories[i].set_info_service(firmware_revision = messageText, manufacturer = "JPCG", model = "NanoIoTWaterV1")
+                const.changedState = True
+
+def checkChangedState(driver):
+    if const.changedState:
+        driver.config_changed()
+        log("Told HomeKit that config changed", 4)
+        const.changedState = False
+
 
 
 
@@ -236,6 +251,7 @@ def log(text, level):
     if level <= const.debuglevel:
         print(const.debugStr[level]+text)
         client.publish("pyPlant/Log", const.debugStr[level]+text)
+
 
 
 # sleep(10.0)  # wait for everything to connect (Wifi, etc)
@@ -261,10 +277,18 @@ for i in range(len(const.plantArray)):
     plantAccessories[i].plantNum = i
     bridge.add_accessory(plantAccessories[i])
 
+
+
 # bridge.add_accessory(FakeFan(driver, 'Big Fan'))
 # bridge.add_accessory(GarageDoor(driver, 'Garage'))
 # bridge.add_accessory(TemperatureSensor(driver, 'Sensor'))
 
+scheduler = BackgroundScheduler()
+scheduler.start()
+scheduler.add_job(checkChangedState,  'interval', args=[driver], minutes=1)
+
 driver.add_accessory(accessory=bridge)
 signal.signal(signal.SIGTERM, driver.signal_handler)
 driver.start()
+
+driver.config_changed()
