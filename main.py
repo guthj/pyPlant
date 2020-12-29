@@ -68,8 +68,6 @@ class Plant(Accessory):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        accDriver = self.driver
-
         plant_hum = self.add_preload_service("HumidifierDehumidifier",
                                              chars=['RelativeHumidityHumidifierThreshold',
                                                     'RelativeHumidityDehumidifierThreshold',
