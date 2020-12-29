@@ -5,6 +5,7 @@ plantAccValues = []
 init = False
 init_HAP = False
 
+
 debuglevel = 5
 # 0 none
 # 1 error
