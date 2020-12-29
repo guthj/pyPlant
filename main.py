@@ -222,6 +222,9 @@ def on_message(client, userdata, msg):
                 const.plantAccValues[i]["moisture"] = int(messageText)
 
             if msg.topic == const.plantArray[i]+const.subWaterTargetValue:
+                if int(messageText) == 40:  # 40 is standard val, set to current if 40
+                    client.publish(const.plantArray[i] + const.pubSetWaterTarget,
+                                   plantAccessories[i].char_threshold.get_value())
                 if const.init_HAP:
                     plantAccessories[i].char_threshold.set_value(int(messageText))
                 const.plantAccValues[i]["moistureTarget"] = int(messageText)
