@@ -90,7 +90,9 @@ class Plant(Accessory):
         self.char_threshold_de = plant_hum.configure_char(
             'RelativeHumidityDehumidifierThreshold', setter_callback=self.set_humidity_de)
         self.char_threshold_de.set_value(100)
-        self.set_info_service(firmware_revision = const.plantAccValues[self.plantNum]['firmware'], manufacturer = "JPCG", model = "Nano")
+        self.set_info_service(firmware_revision=const.plantAccValues[self.plantNum]['firmware'],
+                              manufacturer="JPCG",
+                              model="Nano")
 
     def set_active(self, value):
         # 0, 1
@@ -107,25 +109,25 @@ class Plant(Accessory):
             client.publish(const.plantArray[self.plantNum] + const.pubEnableWatering, "true")
             self.char_curr_state.set_value(1)
 
-
     def set_humidity_de(self, value):
         log("Set dehum value to " + str(value) + "-> Resetting to 100", 4)
         self.char_threshold_de.set_value(100)
         self.char_threshold.set_value(value)
         client.publish(const.plantArray[self.plantNum] + const.pubSetWaterTarget, value)
+        const.plantAccValues[self.plantNum]["moistureTarget"] = value
 
     def set_humidity(self, value):
-    #     hum_val = value + 10
-    #     if hum_val > 100: hum_val = 100
-    #     log("Set dehum_value to " + str(value), 4)
-    #     self.char_threshold.set_value(hum_val)
-    #     log("Setting hum_value to " + str(hum_val), 4)
-    #     client.publish(const.plantArray[self.plantNum] + const.pubSetWaterTarget, value)
+        # hum_val = value + 10
+        # if hum_val > 100: hum_val = 100
+        # log("Set dehum_value to " + str(value), 4)
+        # self.char_threshold.set_value(hum_val)
+        # log("Setting hum_value to " + str(hum_val), 4)
+        # client.publish(const.plantArray[self.plantNum] + const.pubSetWaterTarget, value)
         log("Setting hum_value to " + str(value), 4)
         self.char_threshold_de.set_value(100)
         self.char_threshold.set_value(value)
         client.publish(const.plantArray[self.plantNum] + const.pubSetWaterTarget, value)
-
+        const.plantAccValues[self.plantNum]["moistureTarget"] = value
 
     def set_Target(self, value):
         # 0,1,2
@@ -176,6 +178,7 @@ def on_connect(client, userdata, flags, rc):
         client.subscribe(const.plantArray[i] + const.subWatering)
         client.subscribe(const.plantArray[i] + const.subFirmware)
 
+
 def on_message(client, userdata, msg):
     if const.init:  # disable receiving stray Messages during initial init -> errors
         messageText = str(msg.payload, 'utf-8')
@@ -186,7 +189,7 @@ def on_message(client, userdata, msg):
             if msg.topic == const.plantArray[i]+const.subWatering:
                 if messageText == "true":
                     # set target state to humidify
-                    if const.init_HAP: # disable reporting while plantAccessories is not yet initialized
+                    if const.init_HAP:  # disable reporting while plantAccessories is not yet initialized
                         plantAccessories[i].char_target_state.set_value(1)
                         plantAccessories[i].char_curr_state.set_value(2)
                 if messageText == "false":
@@ -202,7 +205,7 @@ def on_message(client, userdata, msg):
                         plantAccessories[i].char_curr_state.set_value(2)
                 if messageText == "false":
                     if const.init_HAP:
-                    # set target state to auto
+                        # set target state to auto
                         plantAccessories[i].char_target_state.set_value(0)
                         plantAccessories[i].char_curr_state.set_value(1)
             if msg.topic == const.plantArray[i]+const.subEnableWatering:
@@ -222,9 +225,9 @@ def on_message(client, userdata, msg):
                 const.plantAccValues[i]["moisture"] = int(messageText)
 
             if msg.topic == const.plantArray[i]+const.subWaterTargetValue:
-                if int(messageText) == 40:  # 40 is standard val, set to current if 40
+                if int(messageText) == 40 and const.plantAccValues[i]["moistureTarget"] != 40:  # 40 is standard val for arduino, set to current if 40
                     client.publish(const.plantArray[i] + const.pubSetWaterTarget,
-                                   plantAccessories[i].char_threshold.get_value())
+                                   const.plantAccValues[i]["moistureTarget"])
                 if const.init_HAP:
                     plantAccessories[i].char_threshold.set_value(int(messageText))
                 const.plantAccValues[i]["moistureTarget"] = int(messageText)
@@ -232,13 +235,12 @@ def on_message(client, userdata, msg):
             if msg.topic == const.plantArray[i] + const.subFirmware:
                 const.plantAccValues[i]["firmware"] = messageText
 
+
 def checkChangedState(driver):
     if const.changedState:
         driver.config_changed()
         log("Told HomeKit that config changed", 4)
         const.changedState = False
-
-
 
 
 def log(text, level):
@@ -248,7 +250,11 @@ def log(text, level):
 
 
 for plant in const.plantArray:
-    const.plantAccValues.append({"name": plant, "moisture": 40, "moistureTarget": 60, "firmware": "0.1", "WateringEnabled": True})
+    const.plantAccValues.append({"name": plant,
+                                 "moisture": 40,
+                                 "moistureTarget": 60,
+                                 "firmware": "0.1",
+                                 "WateringEnabled": True})
 
 # sleep(10.0)  # wait for everything to connect (Wifi, etc)
 client = mqtt.Client()
@@ -274,13 +280,17 @@ driver = AccessoryDriver(port=51826, persist_file='busy_home.state')
 bridge = Bridge(driver, 'Bridge')
 plantAccessories = []
 for i in range(len(const.plantArray)):
+    # send Array value as initial display_name, gets replaced by const.plantAccValues["name"] in class
+    # this workaround is so that the class knows its array position in const.plantAccValues.
+    # Passing it to class otherwise caused several errors
     plantAccessories.append(Plant(driver, str(i)))
+
 for i in range(len(const.plantArray)):
     plantAccessories[i].char_active.set_value(1)
     plantAccessories[i].char_name.set_value(const.plantArray[i])
     bridge.add_accessory(plantAccessories[i])
 
-const.init_HAP = True
+const.init_HAP = True  # false when HAP is not completely initialized. Caused errors before
 
 # bridge.add_accessory(FakeFan(driver, 'Big Fan'))
 # bridge.add_accessory(GarageDoor(driver, 'Garage'))
