@@ -272,7 +272,7 @@ for plant in const.plantArray:
     client.publish(plant+"/StartUpHAP", "Start")
     sleep(2)
 
-log("Waiting For Everything To Settle", 2)
+log("Waiting For Delayed Responses", 2)
 sleep(10)
 
 
