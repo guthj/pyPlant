@@ -225,6 +225,8 @@ def on_message(client, userdata, msg):
 
             if msg.topic == const.plantArray[i]+const.subWaterTargetValue:
                 if int(messageText) == 40 and const.plantAccValues[i]["moistureTarget"] != 40:  # 40 is standard val for arduino, set to current if 40
+                    log("Inconsistent target value for Plant " + const.plantArray[i] +
+                        ". Trying to set to " + str(const.plantAccValues[i]["moistureTarget"]) + "%", 2)
                     client.publish(const.plantArray[i] + const.pubSetWaterTarget,
                                    const.plantAccValues[i]["moistureTarget"])
                 else:
