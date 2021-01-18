@@ -39,7 +39,6 @@ logging.basicConfig(level=logging.INFO, format="[%(module)s] %(message)s")
 #    },
 # """
 
-
 class Plant(Accessory):
 
     category = CATEGORY_HUMIDIFIER
