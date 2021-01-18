@@ -254,7 +254,7 @@ def log(text, level):
 for plant in const.plantArray:
     const.plantAccValues.append({"name": plant,
                                  "moisture": 40,
-                                 "moistureTarget": 60,
+                                 "moistureTarget": 40,
                                  "firmware": "0.1",
                                  "WateringEnabled": True})
 
