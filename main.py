@@ -112,9 +112,9 @@ class Plant(Accessory):
     def set_humidity_de(self, value):
         log("Set dehum value to " + str(value) + "-> Resetting to 100", 4)
         self.char_threshold_de.set_value(100)
-        self.char_threshold.set_value(value)
-        client.publish(const.plantArray[self.plantNum] + const.pubSetWaterTarget, value)
-        const.plantAccValues[self.plantNum]["moistureTarget"] = value
+        # self.char_threshold.set_value(value)
+        # client.publish(const.plantArray[self.plantNum] + const.pubSetWaterTarget, value)
+        # const.plantAccValues[self.plantNum]["moistureTarget"] = value
 
     def set_humidity(self, value):
         # hum_val = value + 10
@@ -228,9 +228,10 @@ def on_message(client, userdata, msg):
                 if int(messageText) == 40 and const.plantAccValues[i]["moistureTarget"] != 40:  # 40 is standard val for arduino, set to current if 40
                     client.publish(const.plantArray[i] + const.pubSetWaterTarget,
                                    const.plantAccValues[i]["moistureTarget"])
-                if const.init_HAP:
-                    plantAccessories[i].char_threshold.set_value(int(messageText))
-                const.plantAccValues[i]["moistureTarget"] = int(messageText)
+                else:
+                    if const.init_HAP:
+                        plantAccessories[i].char_threshold.set_value(int(messageText))
+                    const.plantAccValues[i]["moistureTarget"] = int(messageText)
 
             if msg.topic == const.plantArray[i] + const.subFirmware:
                 const.plantAccValues[i]["firmware"] = messageText
