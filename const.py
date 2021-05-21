@@ -16,6 +16,8 @@ debugStr = ["None  :  ", "Error :  ", "Notice:  ", "Info  :  ", "Debug :  "]
 
 changedState = False
 
+pingOrResponse = True
+
 
 
 
@@ -23,6 +25,7 @@ pubPumpOn = "/Pump/setOn"
 pubEnableWatering = "/enableWatering/setOn"
 pubSetWaterTarget = "/WaterTarget/setValue"
 pubReset = "/Kill"
+pubPing = "/Ping/Signal"
 
 subLog =                    "/Log"
 subCurrentMoisture =        "/currentMoisture"
@@ -36,3 +39,4 @@ subWatering =               "/MotionSensor/Watering"
 subBattery =                "/Battery"
 subPing =                   "/Ping/Response"
 subFirmware =               "/Firmware"
+subSwitchError =            "/Error"

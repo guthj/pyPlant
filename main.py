@@ -4,7 +4,7 @@ import signal
 
 from pyhap.accessory import Accessory, Bridge
 from pyhap.accessory_driver import AccessoryDriver
-from pyhap.const import (CATEGORY_HUMIDIFIER)
+from pyhap.const import (CATEGORY_HUMIDIFIER, CATEGORY_SENSOR)
 
 import const
 
@@ -17,6 +17,63 @@ import paho.mqtt.client as mqtt
 from time import sleep
 
 logging.basicConfig(level=logging.INFO, format="[%(module)s] %(message)s")
+
+
+
+# "MotionSensor": {
+#     "OptionalCharacteristics": [
+#         "StatusActive",
+#         "StatusFault",
+#         "StatusTampered",
+#         "StatusLowBattery",
+#         "Name"
+#     ],
+#     "RequiredCharacteristics": [
+#         "MotionDetected"
+#     ],
+#     "UUID": "00000085-0000-1000-8000-0026BB765291"
+# },
+class MotionSensor(Accessory):
+
+
+    category = CATEGORY_SENSOR
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+        motion = self.add_preload_service("MotionSensor")
+        self.char_motion = motion.configure_char('MotionDetected')
+
+        self.char_motion.set_value(False)
+
+
+def signalMotion(plantNum, repeats):
+    if plantNum == - 2:
+        for repeat in range(repeats):
+            MSLogger.char_motion.set_value(True)
+            sleep(1)
+            MSLogger.char_motion.set_value(False)
+            sleep(1)
+
+    elif plantNum == - 1:
+        for repeat in range(repeats):
+            MSpyPlant.char_motion.set_value(True)
+            sleep(1)
+            MSpyPlant.char_motion.set_value(False)
+            sleep(1)
+    else:
+        for repeat in range(repeats):
+            plantMotionSensors[plantNum].char_motion.set_value(True)
+            sleep(1)
+            plantMotionSensors[plantNum].char_motion.set_value(False)
+            sleep(1)
+
+def signalError(plantNum):
+    signalMotion(plantNum, 3)
+
+def signalEvent(plantNum):
+    signalMotion(plantNum, 1)
+
 
 # """
 # "HumidifierDehumidifier": {
@@ -38,13 +95,31 @@ logging.basicConfig(level=logging.INFO, format="[%(module)s] %(message)s")
 #       "UUID": "000000BD-0000-1000-8000-0026BB765291"
 #    },
 # """
+class ErrorSwitch(Accessory):
+    category = CATEGORY_SWITCH
+    plantNum = - 1
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.plantNum = int(self.display_name)
+        error_switch = self.add_preload_service('Switch',
+                                                chars=['Name'])
+        self.char_errorState = error_switch.configure_char(
+                                            'On', setter_callback=self.setError)
+        self.char_errorState = error_switch.configure_char('Name')
+
+
+    def setError(self, value):
+        resetErrors()
+
+
+
 
 class Plant(Accessory):
 
     category = CATEGORY_HUMIDIFIER
 
     plantNum = - 1
-    plantDic1 = {}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -130,7 +205,7 @@ class Plant(Accessory):
 
     def set_Target(self, value):
         # 0,1,2
-        # (humidifier or dehumidifier, humidifier, dehumidifier)
+        # (humidifier or dehumidifier ("Auto" in Homekit), humidifier, dehumidifier)
         log("set target: " + str(value), 4)
         if value == 0:
             log("Auto set", 4)
@@ -176,6 +251,8 @@ def on_connect(client, userdata, flags, rc):
         client.subscribe(const.plantArray[i] + const.subPumpOn)
         client.subscribe(const.plantArray[i] + const.subWatering)
         client.subscribe(const.plantArray[i] + const.subFirmware)
+        client.subscribe(const.plantArray[i] + const.subPing)
+
 
 
 def on_message(client, userdata, msg):
@@ -190,7 +267,7 @@ def on_message(client, userdata, msg):
                     # set target state to humidify
                     if const.init_HAP:  # disable reporting while plantAccessories is not yet initialized
                         plantAccessories[i].char_target_state.set_value(1)
-                        plantAccessories[i].char_curr_state.set_value(2)
+                        plantAccessories[i].char_curr_state.set_value(2) # Set to Humidify
                 if messageText == "false":
                     # set target state to auto
                     if const.init_HAP:
@@ -237,12 +314,55 @@ def on_message(client, userdata, msg):
             if msg.topic == const.plantArray[i] + const.subFirmware:
                 const.plantAccValues[i]["firmware"] = messageText
 
+            if msg.topic == const.plantArray[i]+const.subSwitchError:
+                if messageText == "true":
+                    # set target state to humidify
+                    if const.init_HAP:
+                        plantErrorSwitches[i].char_errorState.set_value(True)
+                        const.plantAccValues[i]["Error"] = True
+                if messageText == "false":
+                    if const.init_HAP:
+                        # set target state to auto
+                        plantErrorSwitches[i].char_errorState.set_value(False)
+                        const.plantAccValues[i]["Error"] = False
+
+
+            if msg.topic == const.plantArray[i]+const.subPing:
+                const.plantAccValues[i]["Ping"] = True
+
+
+
+
 
 def checkChangedState(driver):
     if const.changedState:
         driver.config_changed()
         log("Told HomeKit that config changed", 4)
         const.changedState = False
+
+def resetErrors():
+    for plant in const.plantArray:
+        log("Send /StartUpHAP to Refresh Errors for " + plant, 2)
+        client.publish(plant + "/StartUpHAP", "Refresh")
+        sleep(1)
+    pingPlants()
+
+
+
+def pingPlants():
+    for i in range(len(const.plantArray)):
+        const.plantAccValues[i]["Ping"] = False
+
+    for i in range(len(const.plantArray)):
+        client.publish(const.plantArray[i] + const.pubPing, "Ping")
+        sleep(2)
+
+    sleep(13)
+    for i in range(len(const.plantArray)):
+        if const.plantAccValues[i]["Ping"] == False:
+            plantErrorSwitches[i].char_errorState.set_value(True)
+        elif const.plantAccValues[i]["Error"] == False:
+            plantErrorSwitches[i].char_errorState.set_value(False)
 
 
 def log(text, level):
@@ -256,7 +376,10 @@ for plant in const.plantArray:
                                  "moisture": 40,
                                  "moistureTarget": 40,
                                  "firmware": "0.1",
-                                 "WateringEnabled": True})
+                                 "WateringEnabled": True,
+                                 "Ping": True,
+                                 "Error": False
+                                 })
 
 # sleep(10.0)  # wait for everything to connect (Wifi, etc)
 client = mqtt.Client()
@@ -292,15 +415,33 @@ for i in range(len(const.plantArray)):
     plantAccessories[i].char_name.set_value(const.plantArray[i])
     bridge.add_accessory(plantAccessories[i])
 
+# Error Switch
+plantErrorSwitches = []
+for i in range(len(const.plantArray)):
+    plantErrorSwitches.append(ErrorSwitch(driver, str(i)))
+    plantErrorSwitches[i].char_name.set_value(const.plantArray[i])
+    bridge.add_accessory(plantErrorSwitches[i])
+
+# Motion Sensors
+plantMotionSensors = []
+for i in range(len(const.plantArray)):
+    plantMotionSensors.append(MotionSensor(driver, const.plantArray[i]+' Event Sensor'))
+    bridge.add_accessory(plantMotionSensors[i])
+
+MSLogger = MotionSensor(driver, "Logger Event Sensor")
+bridge.add_accessory(MSLogger)
+MSpyPlant = MotionSensor(driver, "pyPlant Event Sensor")
+bridge.add_accessory(MSpyPlant)
+
 const.init_HAP = True  # false when HAP is not completely initialized. Caused errors before
 
 # bridge.add_accessory(FakeFan(driver, 'Big Fan'))
 # bridge.add_accessory(GarageDoor(driver, 'Garage'))
 # bridge.add_accessory(TemperatureSensor(driver, 'Sensor'))
 
-# scheduler = BackgroundScheduler()
-# scheduler.start()
-# scheduler.add_job(checkChangedState,  'interval', args=[driver], minutes=1)
+scheduler = BackgroundScheduler()
+scheduler.start()
+scheduler.add_job(pingPlants,  'interval', minutes=10)
 
 driver.add_accessory(accessory=bridge)
 signal.signal(signal.SIGTERM, driver.signal_handler)
