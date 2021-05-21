@@ -4,7 +4,7 @@ import signal
 
 from pyhap.accessory import Accessory, Bridge
 from pyhap.accessory_driver import AccessoryDriver
-from pyhap.const import (CATEGORY_HUMIDIFIER, CATEGORY_SENSOR)
+from pyhap.const import (CATEGORY_HUMIDIFIER, CATEGORY_SENSOR, CATEGORY_SWITCH)
 
 import const
 
