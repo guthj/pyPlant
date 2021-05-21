@@ -11,7 +11,7 @@ import const
 
 import paho.mqtt.client as mqtt
 
-# from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
 
 
 from time import sleep
@@ -106,7 +106,7 @@ class ErrorSwitch(Accessory):
                                                 chars=['Name'])
         self.char_errorState = error_switch.configure_char(
                                             'On', setter_callback=self.setError)
-        self.char_errorState = error_switch.configure_char('Name')
+        self.char_name = error_switch.configure_char('Name')
 
 
     def setError(self, value):
