@@ -1,4 +1,4 @@
-plantArray=["AlocasiaZ", "Avocado", "CalathiaM", "Monstera", "CalathiaW"]
+plantArray=["AlocasiaZ", "Avocado", "CalathiaM", "Monstera", "CalathiaW" ]
 
 plantAccValues = []
 
