@@ -5,6 +5,7 @@ plantAccValues = []
 init = False
 init_HAP = False
 
+currentPlant = 0
 
 debuglevel = 5
 # 0 none
@@ -20,12 +21,12 @@ pingOrResponse = True
 
 
 
-
 pubPumpOn = "/Pump/setOn"
 pubEnableWatering = "/enableWatering/setOn"
 pubSetWaterTarget = "/WaterTarget/setValue"
 pubReset = "/Kill"
 pubPing = "/Ping/Signal"
+pubMeasureNow = "/MeasureNow"
 
 subLog =                    "/Log"
 subCurrentMoisture =        "/currentMoisture"
@@ -40,3 +41,4 @@ subBattery =                "/Battery"
 subPing =                   "/Ping/Response"
 subFirmware =               "/Firmware"
 subSwitchError =            "/Error"
+

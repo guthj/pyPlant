@@ -101,7 +101,8 @@ class ErrorSwitch(Accessory):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.plantNum = int(self.display_name)
+        self.plantNum = const.currentPlant
+
         error_switch = self.add_preload_service('Switch',
                                                 chars=['Name'])
         self.char_errorState = error_switch.configure_char(
@@ -111,6 +112,8 @@ class ErrorSwitch(Accessory):
 
     def setError(self, value):
         resetErrors()
+        client.publish(const.plantArray[self.plantNum] + const.pubMeasureNow, "true")
+
 
 
 
@@ -126,7 +129,7 @@ class Plant(Accessory):
 
         # self.plantNum = int(self.display_name)
         # self.display_name = str(const.plantArray[self.plantNum]+' Irrigation')
-
+        self.plantNum = const.currentPlant
         plant_hum = self.add_preload_service("HumidifierDehumidifier",
                                              chars=['RelativeHumidityHumidifierThreshold',
                                                     'RelativeHumidityDehumidifierThreshold',
@@ -135,13 +138,13 @@ class Plant(Accessory):
 
         # passive set via .set_value
         self.char_currentMoisture = plant_hum.configure_char('CurrentRelativeHumidity')
-        self.char_currentMoisture.set_value(const.plantAccValues[self.plantNum]["moisture"])
+        self.char_currentMoisture.set_value(const.plantAccValues[const.currentPlant]["moisture"])
 
         # CurrentHumidifierDehumidifierState: 0,1,2,3
         # (inactive, idle, humidifying, dehumidifying)
 
         self.char_curr_state = plant_hum.configure_char('CurrentHumidifierDehumidifierState')
-        if const.plantAccValues[self.plantNum]["WateringEnabled"]:
+        if const.plantAccValues[const.currentPlant]["WateringEnabled"]:
             self.char_curr_state.set_value(1)
         else:
             self.char_curr_state.set_value(0)
@@ -159,15 +162,15 @@ class Plant(Accessory):
             'Active', setter_callback=self.set_active)
         self.char_threshold = plant_hum.configure_char(
             'RelativeHumidityHumidifierThreshold', setter_callback=self.set_humidity)
-        self.char_threshold.set_value(const.plantAccValues[self.plantNum]["moistureTarget"])
+        self.char_threshold.set_value(const.plantAccValues[const.currentPlant]["moistureTarget"])
 
         self.char_threshold_de = plant_hum.configure_char(
             'RelativeHumidityDehumidifierThreshold', setter_callback=self.set_humidity_de)
         self.char_threshold_de.set_value(100)
-        self.set_info_service(firmware_revision=const.plantAccValues[self.plantNum]['firmware'],
+        self.set_info_service(firmware_revision=const.plantAccValues[const.currentPlant]['firmware'],
                               manufacturer="JPCG",
                               model="Nano")
-        log("Created " + const.plantAccValues[self.plantNum]['name'] + " accessory", 2)
+        log("Created " + const.plantAccValues[const.currentPlant]['name'] + " accessory", 2)
 
     def set_active(self, value):
         # 0, 1
@@ -319,7 +322,7 @@ def on_message(client, userdata, msg):
                 if messageText == "true":
                     # set target state to humidify
                     if const.init_HAP:
-                        plantErrorSwitches[i].char_errorState.set_value(True)
+                        turnOnErrorSwitch(i)
                         const.plantAccValues[i]["Error"] = True
                 if messageText == "false":
                     if const.init_HAP:
@@ -327,6 +330,11 @@ def on_message(client, userdata, msg):
                         plantErrorSwitches[i].char_errorState.set_value(False)
                         const.plantAccValues[i]["Error"] = False
 
+                        # check if no more errors -> then reset main switch
+                        noErrors = True
+                        for planti in const.plantAccValues:
+                            if planti["Error"] == True: noErrors = False
+                            if planti["Ping"] == False: noErrors = False
 
             if msg.topic == const.plantArray[i]+const.subPing:
                 const.plantAccValues[i]["Ping"] = True
@@ -360,11 +368,25 @@ def pingPlants():
 
     sleep(13)
     for i in range(len(const.plantArray)):
-        if const.plantAccValues[i]["Ping"] == False:
-            plantErrorSwitches[i].char_errorState.set_value(True)
-        elif const.plantAccValues[i]["Error"] == False:
+        if const.plantAccValues[i]["Ping"]==False or const.plantAccValues[i]["Error"]==True:
+            turnOnErrorSwitch(i)
+        else:
             plantErrorSwitches[i].char_errorState.set_value(False)
+            const.plantAccValues[i]["SwitchOn"] = False
 
+def turnOnErrorSwitch(i):
+    plantErrorSwitches[i].char_errorState.set_value(True)
+    statusErrorSwitch.char_errorState.set_value(True)
+    const.plantAccValues[i]["SwitchOn"] = True
+
+def turnOffErrorSwitch(i):
+    plantErrorSwitches[i].char_errorState.set_value(False)
+    const.plantAccValues[i]["SwitchOn"] = False
+    noErrors = True
+    for plant in const.plantAccValues:
+        if plant["SwitchOn"] == True : noErrors = False
+    if noErrors:
+        statusErrorSwitch.char_errorState.set_value(False)
 
 def log(text, level):
     if level <= const.debuglevel:
@@ -379,7 +401,8 @@ for plant in const.plantArray:
                                  "firmware": "0.1",
                                  "WateringEnabled": True,
                                  "Ping": True,
-                                 "Error": False
+                                 "Error": False,
+                                 "SwitchOn": False
                                  })
 
 # sleep(10.0)  # wait for everything to connect (Wifi, etc)
@@ -409,20 +432,25 @@ for i in range(len(const.plantArray)):
     # send Array value as initial display_name, gets replaced by const.plantAccValues["name"] in class
     # this workaround is so that the class knows its array position in const.plantAccValues.
     # Passing it to class otherwise caused several errors
+    const.currentPlant = i
     plantAccessories.append(Plant(driver, const.plantArray[i]+' Irrigation'))
     plantAccessories[i].plantNum = i
 
 for i in range(len(const.plantArray)):
     plantAccessories[i].char_active.set_value(1)
-    plantAccessories[i].char_name.set_value(const.plantArray[i])
     bridge.add_accessory(plantAccessories[i])
 
 # Error Switch
 plantErrorSwitches = []
 for i in range(len(const.plantArray)):
-    plantErrorSwitches.append(ErrorSwitch(driver, str(i)))
-    plantErrorSwitches[i].char_name.set_value(const.plantArray[i])
+    const.currentPlant = i
+    plantErrorSwitches.append(ErrorSwitch(driver, const.plantArray[i]))
+    plantErrorSwitches[i].plantNum = i
     bridge.add_accessory(plantErrorSwitches[i])
+
+statusErrorSwitch = ErrorSwitch(driver, "Plant Error")
+statusErrorSwitch.plantNum = 0
+bridge.add_accessory(statusErrorSwitch)
 
 # Motion Sensors
 plantMotionSensors = []
@@ -448,3 +476,8 @@ scheduler.add_job(pingPlants,  'interval', minutes=10)
 driver.add_accessory(accessory=bridge)
 signal.signal(signal.SIGTERM, driver.signal_handler)
 driver.start()
+
+
+
+
+
