@@ -124,8 +124,8 @@ class Plant(Accessory):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.plantNum = int(self.display_name)
-        self.display_name = str(const.plantArray[self.plantNum]+' Irrigation')
+        # self.plantNum = int(self.display_name)
+        # self.display_name = str(const.plantArray[self.plantNum]+' Irrigation')
 
         plant_hum = self.add_preload_service("HumidifierDehumidifier",
                                              chars=['RelativeHumidityHumidifierThreshold',
@@ -167,6 +167,7 @@ class Plant(Accessory):
         self.set_info_service(firmware_revision=const.plantAccValues[self.plantNum]['firmware'],
                               manufacturer="JPCG",
                               model="Nano")
+        log("Created " + const.plantAccValues[self.plantNum]['name'] + " accessory", 2)
 
     def set_active(self, value):
         # 0, 1
@@ -408,7 +409,8 @@ for i in range(len(const.plantArray)):
     # send Array value as initial display_name, gets replaced by const.plantAccValues["name"] in class
     # this workaround is so that the class knows its array position in const.plantAccValues.
     # Passing it to class otherwise caused several errors
-    plantAccessories.append(Plant(driver, str(i)))
+    plantAccessories.append(Plant(driver, const.plantArray[i]+' Irrigation'))
+    plantAccessories[i].plantNum = i
 
 for i in range(len(const.plantArray)):
     plantAccessories[i].char_active.set_value(1)
