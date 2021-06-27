@@ -167,9 +167,9 @@ class Plant(Accessory):
         self.char_threshold_de = plant_hum.configure_char(
             'RelativeHumidityDehumidifierThreshold', setter_callback=self.set_humidity_de)
         self.char_threshold_de.set_value(100)
-        self.set_info_service(firmware_revision=const.plantAccValues[const.currentPlant]['firmware'],
+        self.set_info_service(firmware_revision=const.plantAccValues[const.currentPlant]["firmware"],
                               manufacturer="JPCG",
-                              model="Nano")
+                              model="Nano"+const.plantAccValues[const.currentPlant]["wifiFirmware"])
         log("Created " + const.plantAccValues[const.currentPlant]['name'] + " accessory", 2)
 
     def set_active(self, value):
@@ -254,6 +254,7 @@ def on_connect(client, userdata, flags, rc):
         client.subscribe(const.plantArray[i] + const.subWaterTargetValue)
         client.subscribe(const.plantArray[i] + const.subPumpOn)
         client.subscribe(const.plantArray[i] + const.subWatering)
+        client.subscribe(const.plantArray[i] + const.subWifiFirmware)
         client.subscribe(const.plantArray[i] + const.subFirmware)
         client.subscribe(const.plantArray[i] + const.subPing)
 
@@ -317,7 +318,8 @@ def on_message(client, userdata, msg):
 
             if msg.topic == const.plantArray[i] + const.subFirmware:
                 const.plantAccValues[i]["firmware"] = messageText
-
+            if msg.topic == const.plantArray[i] + const.subWifiFirmware:
+                const.plantAccValues[i]["wifiFirmware"] = messageText
             if msg.topic == const.plantArray[i]+const.subSwitchError:
                 if messageText == "true":
                     # set target state to humidify
@@ -327,14 +329,8 @@ def on_message(client, userdata, msg):
                 if messageText == "false":
                     if const.init_HAP:
                         # set target state to auto
-                        plantErrorSwitches[i].char_errorState.set_value(False)
                         const.plantAccValues[i]["Error"] = False
-
-                        # check if no more errors -> then reset main switch
-                        noErrors = True
-                        for planti in const.plantAccValues:
-                            if planti["Error"] == True: noErrors = False
-                            if planti["Ping"] == False: noErrors = False
+                        turnOffErrorSwitch(i)
 
             if msg.topic == const.plantArray[i]+const.subPing:
                 const.plantAccValues[i]["Ping"] = True
@@ -353,8 +349,14 @@ def resetErrors():
     for plant in const.plantArray:
         log("Send /StartUpHAP to Refresh Errors for " + plant, 2)
         client.publish(plant + "/StartUpHAP", "Refresh")
-        sleep(1)
+        sleep(0.1)
+    sleep(5)
     pingPlants()
+    noErrors = True
+    for plant in const.plantAccValues:
+        if plant["SwitchOn"] == True : noErrors = False
+    if noErrors:
+        statusErrorSwitch.char_errorState.set_value(False)
 
 
 
@@ -364,11 +366,10 @@ def pingPlants():
 
     for i in range(len(const.plantArray)):
         client.publish(const.plantArray[i] + const.pubPing, "Ping")
-        sleep(2)
-
-    sleep(13)
+        sleep(0.1)
+    sleep(5)
     for i in range(len(const.plantArray)):
-        if const.plantAccValues[i]["Ping"]==False or const.plantAccValues[i]["Error"]==True:
+        if const.plantAccValues[i]["Ping"] == False or const.plantAccValues[i]["Error"] == True:
             turnOnErrorSwitch(i)
         else:
             plantErrorSwitches[i].char_errorState.set_value(False)
@@ -398,7 +399,8 @@ for plant in const.plantArray:
     const.plantAccValues.append({"name": plant,
                                  "moisture": 40,
                                  "moistureTarget": 40,
-                                 "firmware": "0.1",
+                                 "firmware": "0.1.0",
+                                 "wifiFirmware": "0.1.0",
                                  "WateringEnabled": True,
                                  "Ping": True,
                                  "Error": False,
@@ -475,6 +477,8 @@ scheduler.add_job(pingPlants,  'interval', minutes=10)
 
 driver.add_accessory(accessory=bridge)
 signal.signal(signal.SIGTERM, driver.signal_handler)
+print("Properties after startup:")
+print(const.plantAccValues)
 driver.start()
 
 

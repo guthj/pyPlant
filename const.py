@@ -40,5 +40,6 @@ subWatering =               "/MotionSensor/Watering"
 subBattery =                "/Battery"
 subPing =                   "/Ping/Response"
 subFirmware =               "/Firmware"
+subWifiFirmware =           "/WifiFirmware"
 subSwitchError =            "/Error"
 
