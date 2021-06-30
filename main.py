@@ -330,7 +330,9 @@ def on_message(client, userdata, msg):
                     if const.init_HAP:
                         # set target state to auto
                         const.plantAccValues[i]["Error"] = False
-                        turnOffErrorSwitch(i)
+                        plantErrorSwitches[i].char_errorState.set_value(False)
+                        const.plantAccValues[i]["SwitchOn"] = False
+                        CheckTurnOffErrorSwitch()
 
             if msg.topic == const.plantArray[i]+const.subPing:
                 const.plantAccValues[i]["Ping"] = True
@@ -361,28 +363,29 @@ def resetErrors():
 
 
 def pingPlants():
+    # First set Ping = false
     for i in range(len(const.plantArray)):
         const.plantAccValues[i]["Ping"] = False
-
+    # Ping Plants -> Ping gets set to true via MQTT Subscription
     for i in range(len(const.plantArray)):
         client.publish(const.plantArray[i] + const.pubPing, "Ping")
         sleep(0.1)
-    sleep(5)
+    sleep(7)
+    # Check for Errors
     for i in range(len(const.plantArray)):
         if const.plantAccValues[i]["Ping"] == False or const.plantAccValues[i]["Error"] == True:
             turnOnErrorSwitch(i)
         else:
             plantErrorSwitches[i].char_errorState.set_value(False)
             const.plantAccValues[i]["SwitchOn"] = False
+    checkTurnOffErrorSwitch()
 
 def turnOnErrorSwitch(i):
     plantErrorSwitches[i].char_errorState.set_value(True)
     statusErrorSwitch.char_errorState.set_value(True)
     const.plantAccValues[i]["SwitchOn"] = True
 
-def turnOffErrorSwitch(i):
-    plantErrorSwitches[i].char_errorState.set_value(False)
-    const.plantAccValues[i]["SwitchOn"] = False
+def checkTurnOffErrorSwitch():
     noErrors = True
     for plant in const.plantAccValues:
         if plant["SwitchOn"] == True : noErrors = False
