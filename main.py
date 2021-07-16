@@ -6,6 +6,8 @@ from pyhap.accessory import Accessory, Bridge
 from pyhap.accessory_driver import AccessoryDriver
 from pyhap.const import (CATEGORY_HUMIDIFIER, CATEGORY_SENSOR, CATEGORY_SWITCH)
 
+import matplotlib as plt
+
 import const
 
 
@@ -261,6 +263,7 @@ def on_connect(client, userdata, flags, rc):
 
 
 def on_message(client, userdata, msg):
+    updatePlot = False
     if const.init:  # disable receiving stray Messages during initial init -> errors
         messageText = str(msg.payload, 'utf-8')
         print(msg.topic + " " + str(msg.payload))
@@ -278,12 +281,15 @@ def on_message(client, userdata, msg):
                     if const.init_HAP:
                         plantAccessories[i].char_target_state.set_value(0)
                         plantAccessories[i].char_curr_state.set_value(1)
+
             if msg.topic == const.plantArray[i]+const.subPumpOn:
                 if messageText == "true":
                     # set target state to humidify
                     if const.init_HAP:
                         plantAccessories[i].char_target_state.set_value(1)
                         plantAccessories[i].char_curr_state.set_value(2)
+                    const.plantAccValues["WateringsOverLastDays"][len(const.plantAccValues["WateringsOverLastDays"])]\
+                        = const.plantAccValues["WateringsOverLastDays"][len(const.plantAccValues["WateringsOverLastDays"])]+1
                 if messageText == "false":
                     if const.init_HAP:
                         # set target state to auto
@@ -304,6 +310,7 @@ def on_message(client, userdata, msg):
                 if const.init_HAP:
                     plantAccessories[i].char_currentMoisture.set_value(int(messageText))
                 const.plantAccValues[i]["moisture"] = int(messageText)
+                updatePlot = True
 
             if msg.topic == const.plantArray[i]+const.subWaterTargetValue:
                 if int(messageText) == 40 and const.plantAccValues[i]["moistureTarget"] != 40:  # 40 is standard val for arduino, set to current if 40
@@ -326,19 +333,23 @@ def on_message(client, userdata, msg):
                     if const.init_HAP:
                         turnOnErrorSwitch(i)
                         const.plantAccValues[i]["Error"] = True
-                if messageText == "false":
+                elif messageText == "false":
                     if const.init_HAP:
                         # set target state to auto
                         const.plantAccValues[i]["Error"] = False
                         plantErrorSwitches[i].char_errorState.set_value(False)
                         const.plantAccValues[i]["SwitchOn"] = False
-                        CheckTurnOffErrorSwitch()
+                        checkTurnOffErrorSwitch()
+                updatePlot = True
 
             if msg.topic == const.plantArray[i]+const.subPing:
                 const.plantAccValues[i]["Ping"] = True
 
-
-
+            if msg.topic == const.plantArray[i]+const.subInfoText:
+                const.plantAccValues[i]["InfoText"] = messageText
+                updatePlot = True
+    if updatePlot and const.pingingNow == False:
+        updatePlots()
 
 
 def checkChangedState(driver):
@@ -364,6 +375,7 @@ def resetErrors():
 
 def pingPlants():
     # First set Ping = false
+    const.pingingNow = True
     for i in range(len(const.plantArray)):
         const.plantAccValues[i]["Ping"] = False
     # Ping Plants -> Ping gets set to true via MQTT Subscription
@@ -379,6 +391,8 @@ def pingPlants():
             plantErrorSwitches[i].char_errorState.set_value(False)
             const.plantAccValues[i]["SwitchOn"] = False
     checkTurnOffErrorSwitch()
+    const.pingingNow = False
+    updatePlots()
 
 def turnOnErrorSwitch(i):
     plantErrorSwitches[i].char_errorState.set_value(True)
@@ -392,11 +406,89 @@ def checkTurnOffErrorSwitch():
     if noErrors:
         statusErrorSwitch.char_errorState.set_value(False)
 
+
+def xyArraysForPlotting(startPoint, width,height, array, maxVal = -1):
+    if maxVal == -1:
+        maxVal = max(array)
+        if maxVal==0: maxVal = 0.1
+    yarray = []
+    for i in range(len(array)):
+        yarray.append (array[i]* height/maxVal + startPoint[1])
+    xarray = []
+    for i in range(len(array)):
+        xarray.append(i*width/(len(array)-1)+startPoint[0])
+    return xarray, yarray
+
+
+def updatePlots():
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    plt.axis('off')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    arraySize = len(const.plantArray)
+    ax.text(0.2, (arraySize) * 2 + 0.8, "Plant Name")
+    ax.text(2, (arraySize) * 2 + 0.8, "State &")
+    ax.text(2, (arraySize) * 2 + 0.25, "Error")
+    ax.text(3.05, (arraySize) * 2 + 0.8, "Moisture (/d) &")
+    ax.text(3.05, (arraySize) * 2 + 0.25, "Watering (5d)")
+    ax.text(4.5, (arraySize) * 2 + 0.8, "Info")
+
+    for i in range(arraySize):
+        if const.plantAccValues[i]["WateringEnabled"]:
+            ax.plot([0.07],[(arraySize-i)*2-1], marker="o", color='green')
+        else:
+            ax.plot([0.07], [(arraySize - i) * 2 - 1], marker=".", color='red')
+
+        ax.text(0.2, (arraySize-i)*2-1.2, const.plantArray[i])
+        if const.plantAccValues[i]["Ping"]:
+            ax.text(2, (arraySize - i) * 2 - 1.2+0.4, "Responsive", color='green')
+        else:
+            ax.text(2, (arraySize - i) * 2 - 1.2+0.4, "Unresponsive", color='red')
+        if const.plantAccValues[i]["Error"]:
+            ax.text(2, (arraySize - i) * 2 - 1.2-0.5, "Error", color='red')
+        else:
+            ax.text(2, (arraySize - i) * 2 - 1.2-0.5, "No Error", color='green')
+
+        xarray, yarray = xyArraysForPlotting( startPoint = [3.1, (arraySize - i) * 2 - 1.2-0.6],width= 1.2,height=0.8, array = const.plantAccValues[i]["WateringsOverLastDays"])
+        ax.plot(xarray,yarray)
+
+        for i2 in range (len(xarray)):
+            ax.text(xarray[i2], yarray[i2], const.plantAccValues[i]["WateringsOverLastDays"][i2], color='black')
+        xarray, yarray = xyArraysForPlotting(startPoint=[3.1, (arraySize - i) * 2 - 1.2 + 0.6], width=1.2, height=0.5, maxVal=100, array = const.plantAccValues[i]["MeasurementValues"])
+        ax.plot(xarray, yarray)
+        #ax.text(xarray[len(xarray)-1], yarray[len(yarray)-1], const.plantAccValues[i]["MeasurementValues"][len(xarray)-1], color='black')
+
+        if const.plantAccValues[i]["InfoText"] == "":
+            ax.text(4.5, (arraySize - i) * 2 - 1.2+0.4, "None", color='green')
+        else:
+            ax.text(4.5, (arraySize - i) * 2 - 1.2+0.4,
+                    const.plantAccValues[i]["InfoText"], color='blue')
+        ax.text(4.5, (arraySize - i) * 2 - 1.2 - 0.5,
+                str(const.plantAccValues[i]["moisture"])+"% / "
+                + str(const.plantAccValues[i]["moistureTarget"]) + "%")
+        ax.plot([0, 5.5],[(arraySize-i)*2,(arraySize-i)*2])
+    ax.plot([0, 5.5], [0,0])
+
+    #plt.savefig("/dev/shm/plants.png")
+
 def log(text, level):
     if level <= const.debuglevel:
         print(const.debugStr[level]+text)
         client.publish("pyPlant/Log", const.debugStr[level]+text)
 
+def newDay():
+    for plant in const.plantAccValues:
+        for i in range(len(plant["WateringsOverLastDays"])-1):
+            plant["WateringsOverLastDays"][i]=plant["WateringsOverLastDays"][i+1]
+        plant["WateringsOverLastDays"][len(plant["WateringsOverLastDays"])] = 0
+        plant["MeasurementValues"] = []
+
+
+
+#const.plantArray = sorted(const.plantArray, key=str.lower)
 
 for plant in const.plantArray:
     const.plantAccValues.append({"name": plant,
@@ -407,7 +499,10 @@ for plant in const.plantArray:
                                  "WateringEnabled": True,
                                  "Ping": True,
                                  "Error": False,
-                                 "SwitchOn": False
+                                 "InfoText": "",
+                                 "SwitchOn": False,
+                                 "WateringsOverLastDays": [0, 44, 5, 2, 9],
+                                 "MeasurementValues": []
                                  })
 
 # sleep(10.0)  # wait for everything to connect (Wifi, etc)
@@ -477,6 +572,7 @@ const.init_HAP = True  # false when HAP is not completely initialized. Caused er
 scheduler = BackgroundScheduler()
 scheduler.start()
 scheduler.add_job(pingPlants,  'interval', minutes=10)
+scheduler.add_job(newDay,'cron', hour=0)
 
 driver.add_accessory(accessory=bridge)
 signal.signal(signal.SIGTERM, driver.signal_handler)

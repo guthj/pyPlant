@@ -19,6 +19,8 @@ changedState = False
 
 pingOrResponse = True
 
+pingingNow = False
+
 
 
 pubPumpOn = "/Pump/setOn"
@@ -42,4 +44,5 @@ subPing =                   "/Ping/Response"
 subFirmware =               "/Firmware"
 subWifiFirmware =           "/WifiFirmware"
 subSwitchError =            "/Error"
+subInfoText=                "/InfoText"
 
