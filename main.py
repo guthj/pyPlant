@@ -179,14 +179,14 @@ class Plant(Accessory):
     def set_active(self, value):
         # 0, 1
         # (inactive, active)
-        print("Active: " + str(value))
+        log("Active: " + str(value), 5)
 
         if value == 0:
-            print("Active: is 0, setting enable Watering to false")
+            log("Active: is 0, setting enable Watering to false", 5)
             client.publish(const.plantArray[self.plantNum] + const.pubPumpOn, "false")
             sleep(2)
             client.publish(const.plantArray[self.plantNum] + const.pubEnableWatering, "false")
-        print("Active: is 1, setting enable Watering to true")
+        log("Active: is 1, setting enable Watering to true", 5)
         if value == 1:
             client.publish(const.plantArray[self.plantNum] + const.pubEnableWatering, "true")
             self.char_curr_state.set_value(1)
@@ -268,7 +268,6 @@ def on_message(client, userdata, msg):
     updatePlot = False
     if const.init:  # disable receiving stray Messages during initial init -> errors
         messageText = str(msg.payload, 'utf-8')
-        print(msg.topic + " " + str(msg.payload))
         log(msg.topic + " " + messageText, 4)
         # CHECK FOR PLANT SPECIFIC MESSAGES
         for i in range(len(const.plantArray)):
@@ -428,7 +427,7 @@ def xyArraysForPlotting(startPoint, width,height, array, maxVal = -1):
 
 
 def updatePlots():
-    print("Updating Plot")
+    log("Updating Plot", 4)
     fig = plt.figure()
     ax = fig.add_subplot()
     plt.axis('off')
@@ -485,23 +484,25 @@ def updatePlots():
             plt.savefig("/dev/shm/plants.png")
         else:
             plt.savefig("plants.png")
-        print("Plot saved")
+        log("Plot saved", 3)
     except:
-        print("Plot saving not possible")
+        log("Plot saving not possible", 2)
 
     plt.close('all')
 
 def log(text, level):
     if level <= const.debuglevel:
         print(const.debugStr[level]+text)
-        client.publish("pyPlant/Log", const.debugStr[level]+text)
+        try:
+            client.publish("pyPlant/Log", const.debugStr[level]+text)
+        except:
+            print("Publishing via log not possible")
 
 def newDay():
     for plant in const.plantAccValues:
         for i in range(len(plant["WateringsOverLastDays"])-1):
             plant["WateringsOverLastDays"][i]=plant["WateringsOverLastDays"][i+1]
         plant["WateringsOverLastDays"][len(plant["WateringsOverLastDays"])] = 0
-        plant["MeasurementValues"] = []
 
 
 
@@ -510,10 +511,10 @@ def newDay():
 
 if platform.system() == "Linux":
     const.isLinux = True
-    print("Running on Linux, saving plot to /dev/shm")
+    log("Running on Linux, saving plot to /dev/shm",2 )
 else:
     const.isLinux = False
-    print("Not Running on Linux, saving plot to project folder")
+    log("Not Running on Linux, saving plot to project folder", 2)
 
 
 
