@@ -21,6 +21,8 @@ pingOrResponse = True
 
 pingingNow = False
 
+isLinux = False
+
 
 
 pubPumpOn = "/Pump/setOn"

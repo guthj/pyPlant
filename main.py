@@ -21,6 +21,8 @@ from time import sleep
 logging.basicConfig(level=logging.INFO, format="[%(module)s] %(message)s")
 
 
+import platform
+
 
 # "MotionSensor": {
 #     "OptionalCharacteristics": [
@@ -270,6 +272,7 @@ def on_message(client, userdata, msg):
         log(msg.topic + " " + messageText, 4)
         # CHECK FOR PLANT SPECIFIC MESSAGES
         for i in range(len(const.plantArray)):
+
             if msg.topic == const.plantArray[i]+const.subWatering:
                 if messageText == "true":
                     # set target state to humidify
@@ -477,7 +480,16 @@ def updatePlots():
         ax.plot([0, 5.5],[(arraySize-i)*2,(arraySize-i)*2])
     ax.plot([0, 5.5], [0,0])
 
-    plt.savefig("plants.png")
+    try:
+        if const.isLinux:
+            plt.savefig("/dev/shm/plants.png")
+        else:
+            plt.savefig("plants.png")
+        print("Plot saved")
+    except:
+        print("Plot saving not possible")
+
+    plt.close('all')
 
 def log(text, level):
     if level <= const.debuglevel:
@@ -494,6 +506,16 @@ def newDay():
 
 
 #const.plantArray = sorted(const.plantArray, key=str.lower)
+
+
+if platform.system() == "Linux":
+    const.isLinux = True
+    print("Running on Linux, saving plot to /dev/shm")
+else:
+    const.isLinux = False
+    print("Not Running on Linux, saving plot to project folder")
+
+
 
 for plant in const.plantArray:
     const.plantAccValues.append({"name": plant,
@@ -528,6 +550,7 @@ for plant in const.plantArray:
 
 log("Waiting For Delayed Responses", 2)
 sleep(10)
+
 
 
 driver = AccessoryDriver(port=51826, persist_file='busy_home.state')
@@ -583,6 +606,9 @@ driver.add_accessory(accessory=bridge)
 signal.signal(signal.SIGTERM, driver.signal_handler)
 print("Properties after startup:")
 print(const.plantAccValues)
+
+pingPlants()
+
 driver.start()
 
 
