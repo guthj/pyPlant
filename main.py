@@ -6,7 +6,7 @@ from pyhap.accessory import Accessory, Bridge
 from pyhap.accessory_driver import AccessoryDriver
 from pyhap.const import (CATEGORY_HUMIDIFIER, CATEGORY_SENSOR, CATEGORY_SWITCH)
 
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
 import const
 
