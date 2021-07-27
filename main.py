@@ -227,6 +227,7 @@ class Plant(Accessory):
             client.publish(const.plantArray[self.plantNum] + const.pubEnableWatering, "false")
             self.char_active.set_value(0)
 
+
 #
 # def get_bridge(driver):
 #     bridge = Bridge(driver, 'Bridge')
