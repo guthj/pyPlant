@@ -310,6 +310,10 @@ def on_message(client, userdata, msg):
                 if const.init_HAP:
                     plantAccessories[i].char_currentMoisture.set_value(int(messageText))
                 const.plantAccValues[i]["moisture"] = int(messageText)
+                if len(const.plantAccValues[i]["MeasurementValues"])>50:
+                    const.plantAccValues[i]["MeasurementValues"].remove(const.plantAccValues[i]["MeasurementValues"][0])
+                const.plantAccValues[i]["MeasurementValues"].append(int(messageText))
+
                 updatePlot = True
 
             if msg.topic == const.plantArray[i]+const.subWaterTargetValue:
@@ -421,6 +425,7 @@ def xyArraysForPlotting(startPoint, width,height, array, maxVal = -1):
 
 
 def updatePlots():
+    print("Updating Plot")
     fig = plt.figure()
     ax = fig.add_subplot()
     plt.axis('off')
@@ -472,7 +477,7 @@ def updatePlots():
         ax.plot([0, 5.5],[(arraySize-i)*2,(arraySize-i)*2])
     ax.plot([0, 5.5], [0,0])
 
-    #plt.savefig("/dev/shm/plants.png")
+    plt.savefig("plants.png")
 
 def log(text, level):
     if level <= const.debuglevel:
@@ -501,10 +506,10 @@ for plant in const.plantArray:
                                  "Error": False,
                                  "InfoText": "",
                                  "SwitchOn": False,
-                                 "WateringsOverLastDays": [0, 44, 5, 2, 9],
-                                 "MeasurementValues": []
+                                 "WateringsOverLastDays": [0, 0, 0, 0, 0],
+                                 "MeasurementValues": [40, 60]
                                  })
-
+updatePlots()
 # sleep(10.0)  # wait for everything to connect (Wifi, etc)
 client = mqtt.Client()
 client.on_connect = on_connect
