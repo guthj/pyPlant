@@ -581,7 +581,7 @@ except ValueError as err:
     with open('resetPyPlantValsOnStart.json', 'w') as f:
         json.dump("False", f)
 except:
-    log("File not found")
+    log("File not found",3)
     for plant in const.plantArray:
         const.plantAccValues.append({"name": plant,
                                  "moisture": 40,
