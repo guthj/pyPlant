@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 
 import const
 
+import json
 
 import paho.mqtt.client as mqtt
 
@@ -291,8 +292,9 @@ def on_message(client, userdata, msg):
                     if const.init_HAP:
                         plantAccessories[i].char_target_state.set_value(1)
                         plantAccessories[i].char_curr_state.set_value(2)
-                    const.plantAccValues["WateringsOverLastDays"][len(const.plantAccValues["WateringsOverLastDays"])]\
-                        = const.plantAccValues["WateringsOverLastDays"][len(const.plantAccValues["WateringsOverLastDays"])]+1
+                    const.plantAccValues[i]["WateringsOverLastDays"][len(const.plantAccValues[i]["WateringsOverLastDays"])-1]\
+                        = const.plantAccValues[i]["WateringsOverLastDays"][len(const.plantAccValues[i]["WateringsOverLastDays"])-1]+1
+                    updatePlot = True
                 if messageText == "false":
                     if const.init_HAP:
                         # set target state to auto
@@ -316,7 +318,6 @@ def on_message(client, userdata, msg):
                 if len(const.plantAccValues[i]["MeasurementValues"])>50:
                     const.plantAccValues[i]["MeasurementValues"].remove(const.plantAccValues[i]["MeasurementValues"][0])
                 const.plantAccValues[i]["MeasurementValues"].append(int(messageText))
-
                 updatePlot = True
 
             if msg.topic == const.plantArray[i]+const.subWaterTargetValue:
@@ -328,7 +329,10 @@ def on_message(client, userdata, msg):
                 else:
                     if const.init_HAP:
                         plantAccessories[i].char_threshold.set_value(int(messageText))
-                    const.plantAccValues[i]["moistureTarget"] = int(messageText)
+                    if const.plantAccValues[i]["moistureTarget"] != int(messageText):
+                        const.plantAccValues[i]["moistureTarget"] = int(messageText)
+                        saveJson()
+
 
             if msg.topic == const.plantArray[i] + const.subFirmware:
                 const.plantAccValues[i]["firmware"] = messageText
@@ -491,6 +495,14 @@ def updatePlots():
 
     plt.close('all')
 
+def saveJson():
+    try:
+        with open('plantAccValues.json', 'w') as f:
+            json.dump(const.plantAccValues, f)
+        log("Saved json",4)
+    except:
+        print("cannot open plantAccValues.json for write")
+
 def log(text, level):
     if level <= const.debuglevel:
         print(const.debugStr[level]+text)
@@ -504,10 +516,20 @@ def newDay():
         for i in range(len(plant["WateringsOverLastDays"])-1):
             plant["WateringsOverLastDays"][i]=plant["WateringsOverLastDays"][i+1]
         plant["WateringsOverLastDays"][len(plant["WateringsOverLastDays"])] = 0
+    saveJson()
 
 
+# sleep(10.0)  # wait for everything to connect (Wifi, etc)
+client = mqtt.Client()
+client.on_connect = on_connect
+client.on_message = on_message
+client.connect("10.0.0.50", 1883, 60)
+client.loop_start()
+sleep(2)
+log("MQTT Started", 2)
+const.init = True
+sleep(2)
 
-#const.plantArray = sorted(const.plantArray, key=str.lower)
 
 
 if platform.system() == "Linux":
@@ -518,9 +540,31 @@ else:
     log("Not Running on Linux, saving plot to project folder", 2)
 
 
+#const.plantArray = sorted(const.plantArray, key=str.lower)
+try:
+    f = open('resetPyPlantValsOnStart.json')
+    resetValsOnStart = json.load(f)
+except:
+    resetValsOnStart= "False"
+    with open('resetPyPlantValsOnStart.json', 'w') as f:
+        json.dump(resetValsOnStart, f)
 
-for plant in const.plantArray:
-    const.plantAccValues.append({"name": plant,
+print(resetValsOnStart.upper())
+try:
+    f = open('plantAccValues.json')
+    const.plantAccValues = json.load(f)
+    log("Loaded plantAccValues.json",2)
+    if len(const.plantArray) != len(const.plantAccValues):
+        const.plantAccValues =[]
+        raise ValueError('Read JSON File not used: Different amount of plants')
+    if resetValsOnStart.upper() == "TRUE":
+        const.plantAccValues = []
+        raise ValueError('Read JSON File not used: Reset requested in file')
+except ValueError as err:
+    log("Create plantAccValues from scratch", 3)
+    log(",".join(err.args), 1)
+    for plant in const.plantArray:
+        const.plantAccValues.append({"name": plant,
                                  "moisture": 40,
                                  "moistureTarget": 40,
                                  "firmware": "0.1.0",
@@ -533,17 +577,10 @@ for plant in const.plantArray:
                                  "WateringsOverLastDays": [0, 0, 0, 0, 0],
                                  "MeasurementValues": [40, 60]
                                  })
+    saveJson()
+    with open('resetPyPlantValsOnStart.json', 'w') as f:
+        json.dump("False", f)
 updatePlots()
-# sleep(10.0)  # wait for everything to connect (Wifi, etc)
-client = mqtt.Client()
-client.on_connect = on_connect
-client.on_message = on_message
-client.connect("10.0.0.50", 1883, 60)
-client.loop_start()
-sleep(2)
-log("MQTT Started", 2)
-const.init = True
-sleep(2)
 
 for plant in const.plantArray:
     log("Send /StartUpHAP for " + plant, 2)
@@ -599,7 +636,7 @@ const.init_HAP = True  # false when HAP is not completely initialized. Caused er
 # bridge.add_accessory(GarageDoor(driver, 'Garage'))
 # bridge.add_accessory(TemperatureSensor(driver, 'Sensor'))
 
-scheduler = BackgroundScheduler()
+scheduler = BackgroundScheduler(timezone="Europe/Berlin")
 scheduler.start()
 scheduler.add_job(pingPlants,  'interval', minutes=10)
 scheduler.add_job(newDay,'cron', hour=0)
