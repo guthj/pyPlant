@@ -580,6 +580,8 @@ except ValueError as err:
     saveJson()
     with open('resetPyPlantValsOnStart.json', 'w') as f:
         json.dump("False", f)
+
+
 updatePlots()
 
 for plant in const.plantArray:
