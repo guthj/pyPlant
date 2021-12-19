@@ -580,7 +580,23 @@ except ValueError as err:
     saveJson()
     with open('resetPyPlantValsOnStart.json', 'w') as f:
         json.dump("False", f)
-
+except:
+    log("File not found")
+    for plant in const.plantArray:
+        const.plantAccValues.append({"name": plant,
+                                 "moisture": 40,
+                                 "moistureTarget": 40,
+                                 "firmware": "0.1.0",
+                                 "wifiFirmware": "0.1.0",
+                                 "WateringEnabled": True,
+                                 "Ping": True,
+                                 "Error": False,
+                                 "InfoText": "",
+                                 "SwitchOn": False,
+                                 "WateringsOverLastDays": [0, 0, 0, 0, 0],
+                                 "MeasurementValues": [40, 60]
+                                 })
+    saveJson()
 
 updatePlots()
 
