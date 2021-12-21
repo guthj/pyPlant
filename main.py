@@ -534,7 +534,7 @@ sleep(2)
 
 if platform.system() == "Linux":
     const.isLinux = True
-    log("Running on Linux, saving plot to /dev/shm",2 )
+    log("Running on Linux, saving plot to /dev/shm", 2)
 else:
     const.isLinux = False
     log("Not Running on Linux, saving plot to project folder", 2)
