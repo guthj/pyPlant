@@ -499,7 +499,7 @@ def saveJson():
     try:
         with open('plantAccValues.json', 'w') as f:
             json.dump(const.plantAccValues, f)
-        log("Saved json",4)
+        log("Saved json", 4)
     except:
         print("cannot open plantAccValues.json for write")
 
@@ -515,7 +515,7 @@ def newDay():
     for plant in const.plantAccValues:
         for i in range(len(plant["WateringsOverLastDays"])-1):
             plant["WateringsOverLastDays"][i]=plant["WateringsOverLastDays"][i+1]
-        plant["WateringsOverLastDays"][len(plant["WateringsOverLastDays"])] = 0
+        plant["WateringsOverLastDays"][len(plant["WateringsOverLastDays"])-1] = 0
     saveJson()
 
 
