@@ -492,7 +492,12 @@ def updatePlots():
         log("Plot saved", 3)
     except:
         log("Plot saving not possible", 2)
-
+    try:
+        if const.isLinux:
+            plt.savefig("/mnt/tmp/plants.png")
+        log("Plot saved", 3)
+    except:
+        log("Plot saving not possible in /mnt/tmp", 2)
     plt.close('all')
 
 def saveJson():
